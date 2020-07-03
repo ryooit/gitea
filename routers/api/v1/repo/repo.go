@@ -6,6 +6,7 @@
 package repo
 
 import (
+	"code.gitea.io/gitea/services/gitdiff"
 	"fmt"
 	"net/http"
 	"strings"
@@ -799,4 +800,40 @@ func Delete(ctx *context.APIContext) {
 
 	log.Trace("Repository deleted: %s/%s", owner.Name, repo.Name)
 	ctx.Status(http.StatusNoContent)
+}
+
+func Compare(ctx *context.APIContext) {
+	from := ctx.Query("from")
+	to := ctx.Query("to")
+
+	diff, err := gitdiff.GetDiffRange(ctx.Repo.Repository.RepoPath(),
+		from, to, setting.Git.MaxGitDiffLines,
+		setting.Git.MaxGitDiffLineCharacters, setting.Git.MaxGitDiffFiles)
+	if err != nil {
+		log.Error("GetDiffRange", err)
+		ctx.ServerError("GetDiffRange", err)
+		return
+	}
+
+	res := make([]*api.DiffFile, len(diff.Files))
+	for fileIdx, file := range diff.Files {
+		res[fileIdx] = &api.DiffFile{}
+		res[fileIdx].NewPath = file.Name
+		res[fileIdx].OldPath = file.OldName
+		res[fileIdx].IsCreated = file.IsCreated
+		res[fileIdx].IsDeleted = file.IsDeleted
+		res[fileIdx].IsRenamed = file.IsRenamed
+
+		for _, section := range file.Sections {
+			lines := make([]string, len(section.Lines))
+			for lineIdx, line := range section.Lines {
+				lines[lineIdx] = line.Content
+			}
+			res[fileIdx].Diff = strings.Join(lines, "\n")
+		}
+	}
+
+	ctx.JSON(http.StatusOK, api.CompareResult{
+		Diffs: res,
+	})
 }
