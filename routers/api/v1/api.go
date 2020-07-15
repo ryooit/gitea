@@ -825,6 +825,7 @@ func RegisterRoutes(m *macaron.Macaron) {
 				}, reqRepoReader(models.UnitTypeCode))
 				m.Group("/commits", func() {
 					m.Get("", repo.GetAllCommits)
+					m.Post("", bind(api.CreateCommitOptions{}), repo.CreateCommit)
 					m.Group("/:ref", func() {
 						m.Get("/status", repo.GetCombinedCommitStatusByRef)
 						m.Get("/statuses", repo.GetCommitStatusesByRef)
@@ -832,7 +833,6 @@ func RegisterRoutes(m *macaron.Macaron) {
 				}, reqRepoReader(models.UnitTypeCode))
 				m.Group("/git", func() {
 					m.Group("/commits", func() {
-						m.Post("", bind(api.CreateCommitOptions{}), repo.CreateCommit)
 						m.Get("/:sha", repo.GetSingleCommit)
 					})
 					m.Get("/refs", repo.GetGitAllRefs)

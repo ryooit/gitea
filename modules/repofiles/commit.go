@@ -41,11 +41,14 @@ type CreateCommitOptions struct {
 
 type CommitActionType string
 
-const CommitActionTypeCreate = CommitActionType("create")
-const CommitActionTypeUpdate = CommitActionType("update")
-const CommitActionTypeMove = CommitActionType("move")
-const CommitActionTypeDelete = CommitActionType("delete")
-const CommitActionTypeChmod = CommitActionType("chmod")
+const CommitActionTypeCreate = "create"
+const CommitActionTypeUpdate = "update"
+const CommitActionTypeMove = "move"
+const CommitActionTypeDelete = "delete"
+
+func (x CommitActionType) FromEntryIsExistInPrevious() bool {
+	return x == CommitActionTypeUpdate || x == CommitActionTypeMove || x == CommitActionTypeDelete
+}
 
 type CreateCommitAction struct {
 	Action       CommitActionType
@@ -183,7 +186,7 @@ func CreateCommit(repo *models.Repository, doer *models.User, opts *CreateCommit
 		bom := false
 		executable := false
 
-		if action.Action != CommitActionTypeCreate {
+		if action.Action.FromEntryIsExistInPrevious() {
 			fromEntry, err := commit.GetTreeEntryByPath(fromTreePath)
 			if err != nil {
 				return nil, err

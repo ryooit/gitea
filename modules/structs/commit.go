@@ -15,9 +15,8 @@ type CreateCommitOptions struct {
 	// new_branch (optional) will make a new branch from `branch` before creating the file
 	NewBranchName string `json:"new_branch" binding:"GitRefName;MaxSize(100)"`
 
-	Actions      []*CommitAction   `json:"actions"`
-	Author       Identity          `json:"author"`
-	Committer    Identity          `json:"committer"`
-	Dates        CommitDateOptions `json:"dates"`
-	LastCommitID string            `json:"last_commit_id"`
+	Actions      []*CommitAction `json:"actions"`
+	Author       Identity        `json:"author"`
+	Committer    Identity        `json:"committer"`
+	LastCommitID string          `json:"last_commit_id"`
 }

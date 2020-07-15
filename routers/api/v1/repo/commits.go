@@ -346,14 +346,15 @@ func CreateCommit(ctx *context.APIContext, apiOpts api.CreateCommitOptions) {
 			Email: apiOpts.Committer.Email,
 		},
 		Dates: &repofiles.CommitDateOptions{
-			Author:    apiOpts.Dates.Author,
-			Committer: apiOpts.Dates.Committer,
+			Author:    time.Now(),
+			Committer: time.Now(),
 		},
 	}
 
 	commit, err := repofiles.CreateCommit(ctx.Repo.Repository, ctx.User, opts)
 
 	if err != nil {
+		fmt.Println("CreateCommit", err)
 		ctx.ServerError("CreateCommit", err)
 		return
 	}
@@ -361,6 +362,7 @@ func CreateCommit(ctx *context.APIContext, apiOpts api.CreateCommitOptions) {
 	userCache := make(map[string]*models.User)
 	apiCommit, err := toCommit(ctx, ctx.Repo.Repository, commit, userCache)
 	if err != nil {
+		fmt.Println("toCommit", err)
 		ctx.ServerError("toCommit", err)
 		return
 	}
