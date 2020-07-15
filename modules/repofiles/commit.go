@@ -41,11 +41,11 @@ type CreateCommitOptions struct {
 
 type CommitActionType string
 
-const CommitActionTypeCreate = CommitActionType("Create")
-const CommitActionTypeUpdate = CommitActionType("Update")
-const CommitActionTypeMove = CommitActionType("Move")
-const CommitActionTypeDelete = CommitActionType("Delete")
-const CommitActionTypeChmod = CommitActionType("Chmod")
+const CommitActionTypeCreate = CommitActionType("create")
+const CommitActionTypeUpdate = CommitActionType("update")
+const CommitActionTypeMove = CommitActionType("move")
+const CommitActionTypeDelete = CommitActionType("delete")
+const CommitActionTypeChmod = CommitActionType("chmod")
 
 type CreateCommitAction struct {
 	Action       CommitActionType
@@ -166,7 +166,7 @@ func CreateCommit(repo *models.Repository, doer *models.User, opts *CreateCommit
 
 		// Check that the path given in opts.treePath is valid (not a git path)
 		treePath := CleanUploadFileName(action.TreePath)
-		if treePath == "" {
+		if treePath == "" && action.Action != CommitActionTypeDelete {
 			return nil, models.ErrFilenameInvalid{
 				Path: action.TreePath,
 			}
@@ -183,7 +183,7 @@ func CreateCommit(repo *models.Repository, doer *models.User, opts *CreateCommit
 		bom := false
 		executable := false
 
-		if !action.IsNewFile {
+		if action.Action != CommitActionTypeCreate {
 			fromEntry, err := commit.GetTreeEntryByPath(fromTreePath)
 			if err != nil {
 				return nil, err
@@ -259,13 +259,12 @@ func CreateCommit(repo *models.Repository, doer *models.User, opts *CreateCommit
 					Name:    part,
 					Type:    git.EntryModeTree,
 				}
-			} else if fromTreePath != treePath || action.IsNewFile {
+			} else if fromTreePath != treePath || action.Action == CommitActionTypeCreate {
 				// The entry shouldn't exist if we are creating new file or moving to a new path
 				return nil, models.ErrRepoFileAlreadyExists{
 					Path: treePath,
 				}
 			}
-
 		}
 
 		// Get the two paths (might be the same if not moving) from the index if they exist
@@ -274,7 +273,7 @@ func CreateCommit(repo *models.Repository, doer *models.User, opts *CreateCommit
 			return nil, fmt.Errorf("UpdateRepoFile: %v", err)
 		}
 		// If is a new file (not updating) then the given path shouldn't exist
-		if action.IsNewFile {
+		if action.Action == CommitActionTypeCreate {
 			for _, file := range filesInIndex {
 				if file == action.TreePath {
 					return nil, models.ErrRepoFileAlreadyExists{
@@ -337,20 +336,23 @@ func CreateCommit(repo *models.Repository, doer *models.User, opts *CreateCommit
 				})
 			}
 		}
-		// Add the object to the database
-		objectHash, err := t.HashObject(strings.NewReader(content))
-		if err != nil {
-			return nil, err
-		}
 
-		// Add the object to the index
-		if executable {
-			if err := t.AddObjectToIndex("100755", objectHash, treePath); err != nil {
+		if action.Action != CommitActionTypeDelete {
+			// Add the object to the database
+			objectHash, err := t.HashObject(strings.NewReader(content))
+			if err != nil {
 				return nil, err
 			}
-		} else {
-			if err := t.AddObjectToIndex("100644", objectHash, treePath); err != nil {
-				return nil, err
+
+			// Add the object to the index
+			if executable {
+				if err := t.AddObjectToIndex("100755", objectHash, treePath); err != nil {
+					return nil, err
+				}
+			} else {
+				if err := t.AddObjectToIndex("100644", objectHash, treePath); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}

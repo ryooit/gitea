@@ -6,6 +6,7 @@
 package repo
 
 import (
+	"code.gitea.io/gitea/modules/repofiles"
 	"fmt"
 	"math"
 	"net/http"
@@ -308,4 +309,60 @@ func toCommit(ctx *context.APIContext, repo *models.Repository, commit *git.Comm
 		Committer: apiCommitter,
 		Parents:   apiParents,
 	}, nil
+}
+
+func CreateCommit(ctx *context.APIContext, apiOpts api.CreateCommitOptions) {
+	if ctx.Repo.Repository.IsEmpty {
+		ctx.JSON(http.StatusConflict, api.APIError{
+			Message: "Git Repository is empty.",
+			URL:     setting.API.SwaggerURL,
+		})
+		return
+	}
+
+	actions := make([]*repofiles.CreateCommitAction, len(apiOpts.Actions))
+	for i, apiAction := range apiOpts.Actions {
+		actions[i] = &repofiles.CreateCommitAction{
+			Action:       repofiles.CommitActionType(apiAction.Action),
+			Content:      apiAction.Content,
+			SHA:          apiAction.SHA,
+			TreePath:     apiAction.TreePath,
+			FromTreePath: apiAction.FromTreePath,
+		}
+	}
+
+	opts := &repofiles.CreateCommitOptions{
+		LastCommitID: apiOpts.LastCommitID,
+		OldBranch:    apiOpts.BranchName,
+		NewBranch:    apiOpts.NewBranchName,
+		Message:      apiOpts.Message,
+		Author: &repofiles.IdentityOptions{
+			Name:  apiOpts.Author.Name,
+			Email: apiOpts.Author.Email,
+		},
+		Actions: actions,
+		Committer: &repofiles.IdentityOptions{
+			Name:  apiOpts.Committer.Name,
+			Email: apiOpts.Committer.Email,
+		},
+		Dates: &repofiles.CommitDateOptions{
+			Author:    apiOpts.Dates.Author,
+			Committer: apiOpts.Dates.Committer,
+		},
+	}
+
+	commit, err := repofiles.CreateCommit(ctx.Repo.Repository, ctx.User, opts)
+
+	if err != nil {
+		ctx.ServerError("CreateCommit", err)
+		return
+	}
+
+	userCache := make(map[string]*models.User)
+	apiCommit, err := toCommit(ctx, ctx.Repo.Repository, commit, userCache)
+	if err != nil {
+		ctx.ServerError("toCommit", err)
+		return
+	}
+	ctx.JSON(http.StatusOK, apiCommit)
 }
